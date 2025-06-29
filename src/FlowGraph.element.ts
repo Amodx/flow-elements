@@ -41,12 +41,37 @@ export class FlowGraphElement extends HTMLElement {
   constructor() {
     super();
     this._shadow = this.attachShadow({ mode: "open" });
-    this._graphElm = document.createElement("div");
+    this._graphElm = this.ownerDocument.createElement("div");
     this._graphElm.className = "flow-graph";
-    this._nodesElm = document.createElement("div");
+    this._nodesElm = this.ownerDocument.createElement("div");
     this._nodesElm.className = "flow-nodes";
     this._graphElm.append(this._nodesElm);
   }
+
+_getMousePositionInGraph(event: MouseEvent) {
+  const bounds = this.getBoundingClientRect();
+  const zoom = this.editorData.zoom;
+
+  const offsetX = event.clientX - bounds.left;
+  const offsetY = event.clientY - bounds.top;
+
+  const graphWidth = this._graphElm.clientWidth;
+  const graphHeight = this._graphElm.clientHeight;
+
+  // Undo the centering first (translate(50%, 50%))
+  const centerAdjustedX = offsetX - graphWidth / 2;
+  const centerAdjustedY = offsetY - graphHeight / 2;
+
+  // Undo zoom last
+  const zoomedX = centerAdjustedX / zoom;
+  const zoomedY = centerAdjustedY / zoom;
+
+  // Undo pan (camera offset)
+  const graphX = zoomedX - this.editorData.x / zoom;
+  const graphY = zoomedY - this.editorData.y / zoom;
+
+  return { x: graphX, y: graphY };
+}
 
   _getMousePositionInSVG(event: MouseEvent) {
     const point = this._connectionsSVG.createSVGPoint();
@@ -98,7 +123,6 @@ export class FlowGraphElement extends HTMLElement {
     background-color: #494e52;
   }
 
-
   .flow-nodes {
     position: absolute;
     width: 100%;
@@ -122,6 +146,7 @@ export class FlowGraphElement extends HTMLElement {
     pointer-events: auto;
    filter: drop-shadow(10px 10px 0px rgba(0, 0, 0, 0.5));
   }
+
   .graph-connections .connection:hover {
     cursor: pointer;
     filter: drop-shadow(0px 0px 5px white);
@@ -146,8 +171,6 @@ export class FlowGraphElement extends HTMLElement {
     border-bottom-right-radius: 15px;
   }
 
-
-
   flow-node.active {
     border: 4px solid white;
   }
@@ -166,10 +189,10 @@ export class FlowGraphElement extends HTMLElement {
   }
 
   flow-node .node-body {
-    min-height: 50px;
     background: #2d2d2d;
     color: white;
-    padding: 10px;
+    padding-top: 20px;
+    padding-bottom: 20px;
     position: relative;
     border-bottom-left-radius: 15px;
     border-bottom-right-radius: 15px;
@@ -184,10 +207,14 @@ export class FlowGraphElement extends HTMLElement {
   flow-node .node-body .inputs {
     display: flex;
     flex-direction: column;
+    justify-content: center;
   }
+
   flow-node .node-body .inputs   flow-node-io {
     margin-left: -10px;
+
   }
+
   flow-node.no-content .node-body .inputs {
     position: absolute;
     top: 0;
@@ -195,6 +222,7 @@ export class FlowGraphElement extends HTMLElement {
     width: 100%;
     height: 100%;
   }
+
   flow-node.has-content .node-body .inputs {
 
   }
@@ -202,10 +230,14 @@ export class FlowGraphElement extends HTMLElement {
   flow-node .node-body .outputs {
     display: flex;
     flex-direction: column;
+    justify-content: center;
   }
+
   flow-node .node-body .outputs   flow-node-io {
     margin-left: 10px;
+
   }
+
   flow-node.no-content .node-body .outputs {
     position: absolute;
     top: 0;
@@ -213,6 +245,7 @@ export class FlowGraphElement extends HTMLElement {
     width: 100%;
     height: 100%;
   }
+
   flow-node.has-content .node-body .outputs {
 
   }
@@ -251,10 +284,10 @@ export class FlowGraphElement extends HTMLElement {
 </style>
     `;
     this._shadow.append(this._graphElm);
-    this._connections = document.createElement("div");
+    this._connections = this.ownerDocument.createElement("div");
     this._connections.style.display = "none";
     this._shadow.append(this._connections);
-    this._connectionsSVG = document.createElementNS(
+    this._connectionsSVG = this.ownerDocument.createElementNS(
       "http://www.w3.org/2000/svg",
       "svg"
     );
@@ -298,10 +331,10 @@ export class FlowGraphElement extends HTMLElement {
       this.addEventListener("pointermove", moveListener);
       const onUp = () => {
         this.removeEventListener("pointermove", moveListener);
-        window.removeEventListener("pointerup", onUp);
+        this.ownerDocument.removeEventListener("pointerup", onUp);
       };
 
-      window.addEventListener("pointerup", onUp);
+      this.ownerDocument.addEventListener("pointerup", onUp);
     });
 
     let zoomFactor = 0.05;
@@ -395,7 +428,7 @@ export class FlowGraphElement extends HTMLElement {
     this._acitveNode = node;
     if (!node) return;
     node.setActive(true);
-    this.dispatchEvent(new GraphEvent("node-clicked", this));
+    this.dispatchEvent(new GraphEvent("node-clicked", this._acitveNode));
   }
 
   private _activeConnection: FlowConnectionElement | null = null;
@@ -404,7 +437,7 @@ export class FlowGraphElement extends HTMLElement {
     this._activeConnection = connection;
     if (!connection) return;
     connection.setActive(true);
-    this.dispatchEvent(new GraphEvent("connection-clicked", this));
+    this.dispatchEvent(new GraphEvent("connection-clicked", this._activeConnection));
   }
 
   updateCamera(x: number, y: number, zoom: number) {
@@ -428,7 +461,7 @@ export class FlowGraphElement extends HTMLElement {
     const node = this.flowGraph.addNode(nodeData);
     node.x = x;
     node.y = y;
-    const nodeElm = document.createElement("flow-node");
+    const nodeElm = this.ownerDocument.createElement("flow-node");
     nodeElm.flowGraph = this;
     nodeElm.flowNode = node;
     this._nodesElm.append(nodeElm);
@@ -442,7 +475,7 @@ export class FlowGraphElement extends HTMLElement {
     output: FlowNodeIOElement | null,
     transistent: boolean
   ) {
-    const connectionElm = document.createElement("flow-connection");
+    const connectionElm = this.ownerDocument.createElement("flow-connection");
     connectionElm.inputFlowNode = input;
     connectionElm.outputFlowNode = output;
     connectionElm.transistent = transistent;

@@ -18,11 +18,11 @@ export class FlowNodeElement extends HTMLElement {
       throw new Error("<flow-node> was connected without a node property.");
     }
     //header
-    this._nodeHeaderContainer = document.createElement("div");
+    this._nodeHeaderContainer = this.ownerDocument.createElement("div");
     this._nodeHeaderContainer.className = "node-header";
     this.append(this._nodeHeaderContainer);
     //name
-    this._nodeNameText = document.createElement("p");
+    this._nodeNameText = this.ownerDocument.createElement("p");
     this._nodeHeaderContainer.append(this._nodeNameText);
     this._nodeNameText.innerText = this.flowNode.name;
 
@@ -48,12 +48,12 @@ export class FlowNodeElement extends HTMLElement {
       this.flowGraph.addEventListener("pointermove", moveListener);
       const onUp = () => {
         this.flowGraph.removeEventListener("pointermove", moveListener);
-        window.removeEventListener("pointerup", onUp);
+        this.ownerDocument.removeEventListener("pointerup", onUp);
         this.flowNode.x = positionX;
         this.flowNode.y = positionY;
       };
 
-      window.addEventListener("pointerup", onUp);
+      this.ownerDocument.addEventListener("pointerup", onUp);
     });
   }
 
@@ -99,12 +99,12 @@ export class FlowNodeElement extends HTMLElement {
 
   private renderBody() {
     //body
-    this._nodeBodyContainer = document.createElement("div");
+    this._nodeBodyContainer = this.ownerDocument.createElement("div");
     this._nodeBodyContainer.className = "node-body";
     this.append(this._nodeBodyContainer);
-    const outputs = document.createElement("div");
+    const outputs = this.ownerDocument.createElement("div");
     outputs.className = "outputs";
-    const inputs = document.createElement("div");
+    const inputs = this.ownerDocument.createElement("div");
     inputs.className = "inputs";
 
     const nodeData = this.flowGraph.flowNodeRegister?.getNode(
@@ -112,7 +112,7 @@ export class FlowNodeElement extends HTMLElement {
     );
 
     for (const output of this.flowNode.outputs) {
-      const outputElm = document.createElement("flow-node-io");
+      const outputElm = this.ownerDocument.createElement("flow-node-io");
       outputElm.flowNode = this;
       outputElm.flowNodeIO = output;
       outputElm.className = "output";
@@ -123,7 +123,7 @@ export class FlowNodeElement extends HTMLElement {
 
     if (nodeData?.renderBody) {
       this.classList.add("has-content");
-      this._nodeBodyContentContainer = document.createElement("div");
+      this._nodeBodyContentContainer = this.ownerDocument.createElement("div");
       this._nodeBodyContentContainer.className = "content";
       nodeData.renderBody(this._nodeBodyContentContainer, this);
       this._nodeBodyContainer.append(this._nodeBodyContentContainer);
@@ -132,7 +132,7 @@ export class FlowNodeElement extends HTMLElement {
     }
 
     for (const input of this.flowNode.inputs) {
-      const inputElm = document.createElement("flow-node-io");
+      const inputElm = this.ownerDocument.createElement("flow-node-io");
       inputElm.flowNode = this;
       inputElm.flowNodeIO = input;
       inputElm.className = "input";

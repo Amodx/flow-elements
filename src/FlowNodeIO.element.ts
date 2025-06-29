@@ -14,7 +14,7 @@ export class FlowNodeIOElement extends HTMLElement {
   connections: FlowConnectionElement[] = [];
   constructor() {
     super();
-    this.socket = document.createElement("div");
+    this.socket = this.ownerDocument.createElement("div");
     this.socket.className = "socket";
   }
 
@@ -48,7 +48,7 @@ export class FlowNodeIOElement extends HTMLElement {
     }
     this.style.setProperty("--io-color", this.getColor());
     this.append(this.socket);
-    const title = document.createElement("div");
+    const title = this.ownerDocument.createElement("div");
     title.className = "title";
     title.innerText = this.flowNodeIO.name;
     this.append(title);
@@ -104,10 +104,10 @@ export class FlowNodeIOElement extends HTMLElement {
           this.flowGraph._acitveIO.connections.push(newConnection);
         }
         this.flowGraph.removeEventListener("pointermove", moveListener);
-        window.removeEventListener("pointerup", onUp);
+        this.ownerDocument.removeEventListener("pointerup", onUp);
       };
 
-      window.addEventListener("pointerup", onUp);
+      this.ownerDocument.addEventListener("pointerup", onUp);
     });
   }
 

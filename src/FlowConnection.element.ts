@@ -25,7 +25,7 @@ export class FlowConnectionElement extends HTMLElement {
     if (!this.inputFlowNode && !this.outputFlowNode) {
       throw new Error("<flow-edge> was connected without a node io property.");
     }
-    this.path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    this.path = this.ownerDocument.createElementNS("http://www.w3.org/2000/svg", "path");
     this.path.classList.add("connection");
     this.path.setAttribute("class", this.path.classList.value);
     this.path.setAttribute("stroke", this.getColor());
