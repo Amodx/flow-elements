@@ -1,0 +1,27 @@
+{
+  "name": "@amodx-elms/flow",
+  "version": "0.0.0",
+  "module": "index.js",
+  "types": "index.d.ts",
+  "type": "module",
+  "description": "A library of custom html components for @amodx/flow",
+  "keywords": [],
+  "scripts": {
+    "build": "mkdir -p dist && rm -rf dist/* && cp package.json dist/package.json && cd ./src && npx tsc",
+    "compile": "cd ./src && npx tsc --watch"
+  },
+  "repository": {
+    "url": "git+https://github.com/Amodx/Elements.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Amodx/Elements/issues"
+  },
+  "homepage": "https://github.com/Amodx/Elements",
+  "author": "Amodx",
+  "license": "MIT",
+  "devDependencies": {},
+  "main": "index.js",
+  "publishConfig": {
+    "access": "public"
+  }
+}
