@@ -1,21 +1,77 @@
 import { FlowNode } from "@amodx/flow/Node/FlowNode";
 import { FlowGraphElement } from "./FlowGraph.element";
 import { FlowNodeIOElement } from "./FlowNodeIO.element";
+import { FlowNodeFlowInputElement } from "FlowNodeFlowInput.element";
 
 export class FlowNodeElement extends HTMLElement {
   flowGraph: FlowGraphElement;
   flowNode: FlowNode;
 
+  enableFlowInput = false;
   private _nodeHeaderContainer: HTMLDivElement;
   private _nodeNameText: HTMLParagraphElement;
   private _nodeBodyContainer: HTMLDivElement;
-  private _nodeBodyContentContainer: HTMLDivElement;
+  private _nodeBodyContentContainer: HTMLDivElement | null = null;
 
+  flowInput: FlowNodeFlowInputElement | null = null;
   inputs: FlowNodeIOElement[] = [];
   outputs: FlowNodeIOElement[] = [];
+
+  *getAllIO(
+    mode: "input" | "output" | "io" = "io"
+  ): Generator<FlowNodeIOElement> {
+    if (mode == "input" || mode == "io") {
+      for (const input of this.inputs) {
+        yield input;
+      }
+    }
+    if (mode == "output" || mode == "io") {
+      for (const output of this.outputs) {
+        yield output;
+      }
+    }
+  }
+
+  getInput(name: string) {
+    for (const input of this.inputs) {
+      if (input.flowNodeIO.name == name) return input;
+    }
+    return null;
+  }
+
+  getOutput(name: string) {
+    for (const output of this.outputs) {
+      if (output.flowNodeIO.name == name) return output;
+    }
+    return null;
+  }
+
+  updateNodeName(name: string) {
+    this.flowNode.name = name;
+    this._nodeNameText.innerText = name;
+  }
+
+  private _dispose: (() => void) | null = null;
   connectedCallback() {
+    this.render();
+  }
+
+  reRender() {
+    if (this._dispose) this._dispose();
+    this.render();
+  }
+
+  private render() {
     if (!this.flowNode) {
       throw new Error("<flow-node> was connected without a node property.");
+    }
+    if (this.enableFlowInput) {
+      if (!this.flowInput)
+        this.flowInput = this.ownerDocument.createElement(
+          "flow-node-flow-input"
+        );
+      this.flowInput.flowNode = this;
+      this.append(this.flowInput);
     }
     //header
     this._nodeHeaderContainer = this.ownerDocument.createElement("div");
@@ -26,9 +82,19 @@ export class FlowNodeElement extends HTMLElement {
     this._nodeHeaderContainer.append(this._nodeNameText);
     this._nodeNameText.innerText = this.flowNode.name;
 
-    this.renderBody();
+    //body
+    this._nodeBodyContainer = this.ownerDocument.createElement("div");
+    this._nodeBodyContainer.className = "node-body";
+    this.append(this._nodeBodyContainer);
+    this._nodeBodyContainer.append(this._renderOutputs());
+
+    if (this._nodeBodyContentContainer) this._nodeBodyContentContainer = null;
+    this.renderContent();
+
+    this._nodeBodyContainer.append(this._renderInputs());
+
     //event listeners
-    this.addEventListener("pointerdown", (event) => {
+    const pointerDown = (event: MouseEvent) => {
       event.stopPropagation();
       this.flowGraph.setActiveNode(this);
 
@@ -54,7 +120,18 @@ export class FlowNodeElement extends HTMLElement {
       };
 
       this.ownerDocument.addEventListener("pointerup", onUp);
-    });
+    };
+    this.addEventListener("pointerdown", pointerDown);
+
+    this._dispose = () => {
+      this.innerHTML = "";
+      this.removeEventListener("pointerdown", pointerDown);
+      this._dispose = null;
+    };
+
+    this._nodeBodyContainer.style.minHeight = `${
+      Math.max(this.inputs.length, this.outputs.length) * 20
+    }px`;
   }
 
   disconnectedCallback() {}
@@ -65,13 +142,18 @@ export class FlowNodeElement extends HTMLElement {
   }
 
   updatePlacements() {
+    if (this.flowInput?.socket) {
+      for (const connection of this.flowInput.socket.connections) {
+        connection.updatePlacements();
+      }
+    }
     for (const input of this.inputs) {
-      for (const connection of input.connections) {
+      for (const connection of input.socket.connections) {
         connection.updatePlacements();
       }
     }
     for (const output of this.outputs) {
-      for (const connection of output.connections) {
+      for (const connection of output.socket.connections) {
         connection.updatePlacements();
       }
     }
@@ -79,17 +161,22 @@ export class FlowNodeElement extends HTMLElement {
 
   delete() {
     this.flowGraph.flowGraph.removeNode(this.flowNode.id);
-    this.remove();
+    if (this.flowInput) {
+      for (const connection of this.flowInput.socket.connections) {
+        this.flowGraph.deleteConnection(connection);
+      }
+    }
     for (const input of this.inputs) {
-      for (const connection of input.connections) {
-        connection.delete();
+      for (const connection of input.socket.connections) {
+        this.flowGraph.deleteConnection(connection);
       }
     }
     for (const output of this.outputs) {
-      for (const connection of output.connections) {
-        connection.delete();
+      for (const connection of output.socket.connections) {
+        this.flowGraph.deleteConnection(connection);
       }
     }
+    this.remove();
   }
 
   setPosition(x: number, y: number) {
@@ -97,40 +184,10 @@ export class FlowNodeElement extends HTMLElement {
     this.updatePlacements();
   }
 
-  private renderBody() {
-    //body
-    this._nodeBodyContainer = this.ownerDocument.createElement("div");
-    this._nodeBodyContainer.className = "node-body";
-    this.append(this._nodeBodyContainer);
-    const outputs = this.ownerDocument.createElement("div");
-    outputs.className = "outputs";
+  private _renderInputs() {
+    this.inputs = [];
     const inputs = this.ownerDocument.createElement("div");
     inputs.className = "inputs";
-
-    const nodeData = this.flowGraph.flowNodeRegister?.getNode(
-      this.flowNode.type
-    );
-
-    for (const output of this.flowNode.outputs) {
-      const outputElm = this.ownerDocument.createElement("flow-node-io");
-      outputElm.flowNode = this;
-      outputElm.flowNodeIO = output;
-      outputElm.className = "output";
-      outputs.append(outputElm);
-      this.outputs.push(outputElm);
-    }
-    this._nodeBodyContainer.append(outputs);
-
-    if (nodeData?.renderBody) {
-      this.classList.add("has-content");
-      this._nodeBodyContentContainer = this.ownerDocument.createElement("div");
-      this._nodeBodyContentContainer.className = "content";
-      nodeData.renderBody(this._nodeBodyContentContainer, this);
-      this._nodeBodyContainer.append(this._nodeBodyContentContainer);
-    } else {
-      this.classList.add("no-content");
-    }
-
     for (const input of this.flowNode.inputs) {
       const inputElm = this.ownerDocument.createElement("flow-node-io");
       inputElm.flowNode = this;
@@ -139,6 +196,43 @@ export class FlowNodeElement extends HTMLElement {
       inputs.append(inputElm);
       this.inputs.push(inputElm);
     }
-    this._nodeBodyContainer.append(inputs);
+    return inputs;
+  }
+
+  private _renderOutputs() {
+    this.outputs = [];
+    const outputs = this.ownerDocument.createElement("div");
+    outputs.className = "outputs";
+    for (const output of this.flowNode.outputs) {
+      const outputElm = this.ownerDocument.createElement("flow-node-io");
+      outputElm.flowNode = this;
+      outputElm.flowNodeIO = output;
+      outputElm.className = "output";
+      outputs.append(outputElm);
+      this.outputs.push(outputElm);
+    }
+    return outputs;
+  }
+
+  renderContent() {
+    const nodeData = this.flowGraph.flowNodeRegister?.getNode(
+      this.flowNode.type
+    );
+    if (this._nodeBodyContentContainer) {
+      this._nodeBodyContentContainer.innerHTML = "";
+    }
+    if (nodeData?.renderBody) {
+      this.classList.add("has-content");
+      if (!this._nodeBodyContentContainer) {
+        this._nodeBodyContentContainer =
+          this.ownerDocument.createElement("div");
+        this._nodeBodyContentContainer.className = "content";
+        this._nodeBodyContainer.append(this._nodeBodyContentContainer);
+      }
+
+      nodeData.renderBody(this._nodeBodyContentContainer, this);
+    } else {
+      this.classList.add("no-content");
+    }
   }
 }

@@ -1,10 +1,37 @@
+import { FlowNodeIOElement } from "./FlowNodeIO.element";
+import { FlowConnectionElement } from "./FlowConnection.element";
 import { FlowNodeElement } from "./FlowNode.element";
+import { FlowSocketElement } from "FlowSocket.element";
 
 export interface FlowNodeTypeData {
   type: string;
+  enableFlowInput?: boolean;
   color?: string;
-  renderBody?(container: HTMLDivElement, parent: FlowNodeElement): void;
+  renderBody?(container: HTMLDivElement, node: FlowNodeElement): void;
+  created?(node: FlowNodeElement): void;
+  deleted?(node: FlowNodeElement): void;
+  connectionAdded?(
+    node: FlowNodeElement,
+    socket: FlowNodeIOElement,
+    connection: FlowConnectionElement
+  ): void;
+  connectionRemoved?(
+    node: FlowNodeElement,
+    socket: FlowNodeIOElement,
+    connection: FlowConnectionElement
+  ): void;
+  flowConnectionAdded?(
+    node: FlowNodeElement,
+    socket: FlowSocketElement,
+    connection: FlowConnectionElement
+  ): void;
+  flowConnectionRemoved?(
+    node: FlowNodeElement,
+    socket: FlowSocketElement,
+    connection: FlowConnectionElement
+  ): void;
 }
+
 export interface FlowNodeIOTypeData {
   type: string;
   color: string;

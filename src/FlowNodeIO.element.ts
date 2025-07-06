@@ -1,7 +1,7 @@
 import { FlowNodeInput } from "@amodx/flow/Node/FlowNodeInput";
 import { FlowNodeOutput } from "@amodx/flow/Node/FlowNodeOutput";
 import { FlowNodeElement } from "./FlowNode.element";
-import { FlowConnectionElement } from "./FlowConnection.element";
+import { FlowSocketElement } from "./FlowSocket.element";
 
 export class FlowNodeIOElement extends HTMLElement {
   get flowGraph() {
@@ -10,12 +10,10 @@ export class FlowNodeIOElement extends HTMLElement {
   flowNode: FlowNodeElement;
   flowNodeIO: FlowNodeInput | FlowNodeOutput;
 
-  socket: HTMLDivElement;
-  connections: FlowConnectionElement[] = [];
-  constructor() {
-    super();
-    this.socket = this.ownerDocument.createElement("div");
-    this.socket.className = "socket";
+  socket: FlowSocketElement;
+
+  get ioType() {
+    return this.flowNodeIO.ioType;
   }
 
   getColor() {
@@ -31,22 +29,16 @@ export class FlowNodeIOElement extends HTMLElement {
     return true;
   }
 
-  removeConnection(conection: FlowConnectionElement) {
-    for (let i = 0; i < this.connections.length; i++) {
-      if (this.connections[i] == conection) {
-        this.connections.splice(i);
-        return;
-      }
-    }
-  }
-
   connectedCallback() {
     if (!this.flowNodeIO) {
       throw new Error(
-        "<flow-node-io> was connected without a node io property."
+        "<flow-nodea-io> was connected without a node io property."
       );
     }
-    this.style.setProperty("--io-color", this.getColor());
+    this.socket = this.ownerDocument.createElement("flow-socket");
+    this.socket.color = this.getColor();
+    this.socket.flowNode = this.flowNode;
+    this.socket.flowNodeIO = this;
     this.append(this.socket);
     const title = this.ownerDocument.createElement("div");
     title.className = "title";
@@ -56,7 +48,7 @@ export class FlowNodeIOElement extends HTMLElement {
       this.flowGraph._acitveIO = this;
     });
     this.socket.addEventListener("pointerleave", (event) => {
-      this.flowGraph._acitveIO = null;
+      this.flowGraph._acitveIO = this;
     });
     this.socket.addEventListener("pointerdown", (event) => {
       event.stopPropagation();
@@ -69,8 +61,8 @@ export class FlowNodeIOElement extends HTMLElement {
       let positionY = socketY;
 
       const connection = this.flowGraph.addConnection(
-        this.flowNodeIO.ioType == "input" ? this : null,
-        this.flowNodeIO.ioType == "output" ? this : null,
+        this.flowNodeIO.ioType == "input" ? this.socket : null,
+        this.flowNodeIO.ioType == "output" ? this.socket : null,
         true
       );
 
@@ -88,20 +80,21 @@ export class FlowNodeIOElement extends HTMLElement {
       moveListener(event);
       this.flowGraph.addEventListener("pointermove", moveListener);
       const onUp = () => {
+        this.flowGraph._activeConnection = null;
         connection.remove();
         if (
           this.flowGraph._acitveIO &&
           this.isComptable(this.flowGraph._acitveIO)
         ) {
-          const newConnection = this.flowGraph.addConnection(
-            this.flowNodeIO.ioType == "input" ? this : this.flowGraph._acitveIO,
+          this.flowGraph.addConnection(
+            this.flowNodeIO.ioType == "input"
+              ? this.socket
+              : this.flowGraph._acitveIO.socket,
             this.flowNodeIO.ioType == "output"
-              ? this
-              : this.flowGraph._acitveIO,
+              ? this.socket
+              : this.flowGraph._acitveIO.socket,
             false
           );
-          this.connections.push(newConnection);
-          this.flowGraph._acitveIO.connections.push(newConnection);
         }
         this.flowGraph.removeEventListener("pointermove", moveListener);
         this.ownerDocument.removeEventListener("pointerup", onUp);
